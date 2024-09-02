@@ -14,7 +14,7 @@ OBJS    = $(SRCS:.c=.o)
 
 CFLAGS  = -I ./ 
 
-LDFLAGS = -levdi -lusb-1.0 -lturbojpeg -lc -lm -lpthread
+LDFLAGS = -levdi -lusb-1.0 -lturbojpeg -lc -lpthread
 
 all: $(NAME)
 
