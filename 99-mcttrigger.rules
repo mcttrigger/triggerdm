@@ -1,0 +1,12 @@
+# Copyright (c) 2016 - 2024 Magic Control Technology Corp. 
+
+ENV{PRODUCT}!="711/56*", ENV{PRODUCT}!="711/57*",  GOTO="not_mct"
+
+ACTION=="add", SUBSYSTEM=="usb", DRIVERS=="usb", \
+   ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceProtocol}=="00", IMPORT{parent}="MCT Corp.*", \
+   RUN+="/opt/mct/mcttrigger-udev.sh $root"
+
+ACTION=="remove", RUN+="/opt/mct/mcttrigger-udev.sh $root"
+
+LABEL="not_mct"
+
