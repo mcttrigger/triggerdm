@@ -1,34 +1,23 @@
-/*****************************************************************************
- * t6bulkdef.h
- *****************************************************************************
- * Copyright (c) MCT Corporation.  All rights reserved.
- * 
- * Module Name:
- *      t6bulkdef.h
+/*
+ *  Copyright (c) 2016-2024 Magic Control Technology Corp.
  *
- * Abstract:
- *      Defines the T6 bulk & interrupt transfer.
- * 
- * Environment:
- *      User / Kernel / Firmware mode
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
  *
- * Revision History:
- *      2016/04/11 Feng, Chun-Chiang (ccfeng@mct.com.tw)
- *          1) First Release.
- *      2016/04/20 Feng, Chun-Chiang (ccfeng@mct.com.tw)
- *          1) Added T6INT_ROM_EVENT_XXX for status monitoring.
- *      2016/06/15 Feng, Chun-Chiang (ccfeng@mct.com.tw)
- *          1) Added AudioRenderJack0 for audio render jack detection.
- *      2016/07/27 Feng, Chun-Chiang (ccfeng@mct.com.tw)
- *          1) Added SIGNATURE_IN, SIGNATURE_AUDIO_IN, SIGNATURE_ROM_IN.
- *      2016/09/13 CC & Ivan
- *          1) Added AudioRenderDVOH, AudioRenderLVDSH, AudioCaptureJackMic, AudioCaptureDataIn.
- *		2017/04/27	Yulw
- *			1) Add T6_DISPLAY_EXT_FLIP_XXX and T6_DISPLAY_EXT_CLIP_XXX extension IDs
- *			2) Modify structure tT6BulkDmaHdr.FuncSpecific.Display for new Extention IDs.
+ *   This program is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with this program; if not, write to the Free Software
+ *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+ *
+ *   author: louis@mct.com.tw
  *
  */
-
 #ifndef _T6_BULK_DEF_H_
 #define _T6_BULK_DEF_H_
 
