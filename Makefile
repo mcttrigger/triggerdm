@@ -23,7 +23,7 @@ GREEN   = \033[1;32m
 
 WHITE   = \033[0;m
 
-NAME    = T6evdi
+NAME    = triggerdm
 
 CC      = gcc -g
 
