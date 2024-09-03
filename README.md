@@ -6,7 +6,7 @@ triggerdm is a driver for Magic Control Technology Corp. (MCT) USB display IC se
 2. make
 3. sudo cp triggerdm /usr/local/sbin
 4. sudo /usr/local/sbin/triggerdm &
-5. leave virtual terminal mode and plug in usb display adapter with MCT chipset
+5. leave virtual terminal mode and plug your MCT USB display device into chromebook. It can work now :)
 
 ### Integration with ChromeOS
 - mcttrigger.conf     -- service configuration file , should be put into /etc/init
