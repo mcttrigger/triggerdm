@@ -44,7 +44,7 @@
 
 
 
-#define USE4KJPEG
+//#define USE4KJPEG
 
 #include "t6usbdongle.h"
 //#include "pulseaudio_list.h"
