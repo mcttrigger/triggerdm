@@ -7,3 +7,10 @@ triggerdm is a driver for Magic Control Technology Corp. (MCT) USB display IC se
 3. sudo cp triggerdm /usr/local/sbin
 4. sudo /usr/local/sbin/triggerdm &
 5. leave virtual terminal mode and plug in usb display adapter with MCT chipset
+
+### Integration with ChromeOS
+- mcttrigger.conf     -- service configuration file , should be put into /etc/init
+- 99-mcttrigger.rules -- config file for udev system, should be put into /lib/udev/rules.d
+- mcttrigger-udev.sh -- it will be call by 99-mcttrigger.rules only when udev hotplug event occurs. The script will start and stop mcttriger service and should be put into /opt/mct
+- tirggerdm -- the main program, it will be executed by mcttrigger service and  should be put into /opt/mct
+- user & group -- need to create new group ***mcttrigger*** and new user ***mcttrigger***, the user ***mcttrigger*** belongs to the video, usb and mcttriger groups at the same time.
