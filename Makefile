@@ -33,7 +33,7 @@ SRCS    = main.c t6usbdongle.c cea_edid.c simclist.c
 
 OBJS    = $(SRCS:.c=.o)
 
-CFLAGS  = -I ./ 
+CFLAGS  = -DDEBUG -I ./ 
 
 LDFLAGS = -levdi -lusb-1.0 -lturbojpeg -lc -lpthread
 

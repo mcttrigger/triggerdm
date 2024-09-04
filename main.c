@@ -852,7 +852,7 @@ void *int_process(void *userdata)
 */
 void *int_process2(void *userdata)
 {
-    char buf[64];
+	char buf[64];
 	int  ret = 0, pre_state0 = 0, pre_state1 = 0;
 	struct int_proc_para* int_params = ( struct int_proc_para*) userdata;
 	struct timeval jj_time;
@@ -867,7 +867,7 @@ void *int_process2(void *userdata)
 		ret =t6_libusb_get_interrupt3(int_params->t6usbdev,buf,64);
 		//hex_dump(buf, 64,"int_buf");
 		fenceID = (unsigned int *)(buf+0x0c);
-		DEBUG_PRINT("fenceID=%\n", *fenceID);
+//		DEBUG_PRINT("fenceID=%d\n", *fenceID);
 //		gettimeofday(&jj_time, NULL);
 //		printf("%s time :  %ld %ld \n", __func__ , jj_time.tv_sec, jj_time.tv_usec);	
 		if(ret == -4) break; //no device now

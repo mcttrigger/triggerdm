@@ -29,7 +29,7 @@
 #define MAX_DIRTS 16
 #define MAX_T6_DEVICES	16
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(fmt, args...)    fprintf(stderr, fmt, ## args)
 #else
