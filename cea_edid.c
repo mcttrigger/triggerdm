@@ -35,7 +35,7 @@ typedef enum{
 	TRUE
 }BOOLEAN;
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 	#define DebugPrint(fmt, args...)   fprintf(stderr, fmt, ## args)
 	#define MctPrint(fmt, args...)   fprintf(stderr, fmt, ## args)
