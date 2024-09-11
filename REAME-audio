@@ -1,0 +1,3 @@
+Chromebrew developement Enviroment have something wrong on /usr/local/lib64/libm.so.6, so we need to overwrite it with orignial /lib64/libm.so.6. Please execute the following command as below,
+
+sudo cp /lib64/libm.so.6 /usr/local/lib64/libm.so.6
