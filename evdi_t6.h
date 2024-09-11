@@ -78,7 +78,7 @@ typedef struct T6evdi{
 									   // D3: LVDS (Internal HDMI)
 	UINT8					*detach_all_event;
 	UINT32					pixelformat;
-	//queue_t*                audio_queue;
+	queue_t*                audio_queue;
 	//queue_t*                jpg_queue;
 	list_t                  jpg_list_queue;
 	struct evdi_box*        evdi_list_queue;
