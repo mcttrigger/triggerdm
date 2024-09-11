@@ -317,7 +317,7 @@ int audio_upsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int
 		
 		dst_len = (int) ((double) src_len / scale);
 		if(dst_len%2) dst_len++;
-		dst_buf = (char*) malloc(dst_len);
+//		dst_buf = (char*) malloc(dst_len);
 		for(i=0; i<dst_len/2; i++){
 				int inPos = (int) pos;
                 double proportion = pos - inPos;
