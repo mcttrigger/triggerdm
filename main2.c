@@ -285,29 +285,94 @@ void close_usb_handle(libusb_device_handle  *usbhandle ,int id)
 
 
 #if USE_LOOPAUDIO
-int audio_use(libusb_device_handle  *usbhandle ,int id)
+#include <math.h>
+#define RECV_AUDIO_FRAMES	480
+
+int find_alsa_loopback_card_no()
 {
-
-    int use = 0 ;
-	struct T6evdi *ptr = head;
-    pthread_mutex_lock(&linklist_mutex);
-    while(ptr != NULL)
-    {
-        if(ptr->t6usbdev == usbhandle){
-			if( id != ptr->display_id){
-              use = ptr->audio_only ;
-			}
+	char path[256], id[128];
+	FILE *file;
+	int i = 0, id_no = -1;
+	for(i=0;i<64;i++){
+		sprintf(path,"/proc/asound/card%d/id",i);
+		file = fopen(path,"r");
+		if(file == NULL) 
+			continue;
+		else 
+			fgets(id, 128, file);
+		
+		if(strncmp(id, "Loopback", 8) == 0) {
+			id_no = i;
 			break;
-        }
-        ptr = ptr->next;
-    }
-    pthread_mutex_unlock(&linklist_mutex);
-//	return 	use;
-	return 	0;
-
+		}else
+			continue;
+			
+		
+	}
+	
+	fclose(file);
+	return id_no;
 }
 
-#include <math.h>
+
+int get_loopback_work_hwparams(int *sample_rate, int *channels, int *formats)
+{
+	char path[256], line[128];
+	FILE *file;
+	int ret = -1;
+	
+	int card_id = -1;
+	
+	if((card_id=find_alsa_loopback_card_no()) < 0 ) return ret;
+	
+	sprintf(path,"/proc/asound/card%d/pcm0p/sub0/hw_params", card_id);
+	
+	file = fopen(path,"r");
+	if(file != NULL) {
+		while(fgets(line, 128, file) != NULL) {
+//			DEBUG_PRINT("%s\n", line);
+			if(strstr(line,"closed") != NULL) break;
+			if(strstr(line,"channels") != NULL){
+				char *token;
+				token = strtok(line, " ");
+				token = strtok(NULL, " ");//format always channels: 8, so second field is number of channels
+				*channels = atoi(token);
+			}
+		
+			if(strstr(line,"rate") != NULL){
+				char *token;
+				token = strtok(line, " ");
+				token = strtok(NULL, " ");//format always rate: 48000 (48000/1), second field is sampling rate
+				*sample_rate = atoi(token);
+			}
+			
+			if(strstr(line,"format") != NULL && strstr(line,"subformat") == NULL){
+				char *token;
+				token = strtok(line, " ");
+				token = strtok(NULL, " ");//format always rate: 48000 (48000/1), second field is sampling rate
+				if(strstr(token, "S16_") != NULL) 
+					*formats = 16;
+				else 
+				if(strstr(token, "S32_") != NULL) 
+					*formats = 32;
+				else
+					*formats = 16;
+					
+			}
+		
+		}
+		fclose(file);
+		
+		if(*sample_rate != 0 && *channels != 0 && *formats != 0) 
+			ret = 0;
+		
+	}else
+		DEBUG_PRINT("%s: %s not found",__func__, path);
+	return ret;
+}
+
+
+
 int audio_upsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int src_len)
 {
 		double scale = (double) src_freq /  (double) dst_freq;
@@ -316,8 +381,13 @@ int audio_upsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int
 		
 		
 		dst_len = (int) ((double) src_len / scale);
+		
+		
 		if(dst_len%2) dst_len++;
-//		dst_buf = (char*) malloc(dst_len);
+		if(dst_buf == NULL) return dst_len;
+		
+		
+		
 		for(i=0; i<dst_len/2; i++){
 				int inPos = (int) pos;
                 double proportion = pos - inPos;
@@ -338,41 +408,90 @@ int audio_upsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int
 		return dst_len;
 }
 
+int audio_downsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int src_len)
+{
+		double scale = (double) src_freq /  (double) dst_freq;
+		double pos = 0;
+		int dst_len = 0, i=0, inPos = 0, outPos = 0;
+		double sum1 = 0, sum2 = 0;
+		
+		
+		dst_len = 2*(int)((double)(src_len/2)* scale);
+		
+		if(dst_buf == NULL) return dst_len;
+		
+		 while (outPos < dst_len) {
+			 double firstVal = src_buf[inPos++], nextVal = src_buf[inPos++];
+			 double nextPos = pos + scale;
+			 if (nextPos >= 1) {
+				 sum1 += firstVal * (1 - pos);
+				 sum2 += nextVal * (1 - pos);
+				 dst_buf[outPos++] = (char) round(sum1);
+				 dst_buf[outPos++] = (char) round(sum2);
+				 nextPos -= 1;
+				 sum1 = nextPos * firstVal;
+				 sum2 = nextPos * nextVal;
+			} else {
+				sum1 += scale * firstVal;
+				sum2 += scale * nextVal;
+			}
+			pos = nextPos;
+			if (inPos >= src_len && outPos < dst_len) {
+				dst_buf[outPos++] = (char) round(sum1 / pos);
+				dst_buf[outPos++] = (char) round(sum2 / pos);
+			}
+		}
+		
+		DEBUG_PRINT("%s: dst_len = %d %x\n", __func__, dst_len, dst_buf);
+		return dst_len;
+}
+
 
 int pullaudio_buffer(char *audiobuffer, void *userdata)
 {
 
-	struct T6evdi* ptr = (struct T6evdi*) userdata;
+	PT6AUDIO pt6audio = (PT6AUDIO) userdata;
 	
+	if(pt6audio != NULL) {
+		double scale = 0;
+		int dst_len = 0;
+		scale = (double) pt6audio->sample_rate /  (double) 48000;
+DEBUG_PRINT("%s: scale = %lf\n", __func__, scale);
+		if(scale > 1.0) 
+			dst_len = audio_downsample(NULL, NULL, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
+		else if(scale < 1.0)
+			dst_len = audio_upsample(NULL, NULL, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
+		else
+			dst_len = RECV_AUDIO_FRAMES*2*2;
 	
+		pt6audio->target_audio_buflen = dst_len;
 	
-	
-//    pthread_mutex_lock(&linklist_mutex);
-	
-	
-    while(ptr != NULL)
-    {
-        if(ptr->audio_queue != NULL){
-			if(ptr->disp_set_mode == 1){
-				char *audiodata = (char*)malloc(1920);
-				char *up_audiodata = (char*)malloc(2090);;
-				if(audiodata != NULL){
+   
+        if(pt6audio->audio_queue != NULL){
+			char *audiodata = (char*)malloc(RECV_AUDIO_FRAMES*2*2); //T6 only support 2 channels 16bits
+			char *resample_audiodata = (char*)malloc(dst_len);;
+			if(audiodata != NULL && resample_audiodata != NULL){
+				
+				if(pt6audio->channels >= 2){
 					int i =0;
 					for(i=0;i<480;i++)
-						memcpy(audiodata+i*4,audiobuffer+i*16, 4);
-					
-					audio_upsample(audiodata, up_audiodata, 44100, 48000, 1920);
-					DEBUG_PRINT("%s: up_audiodata = %x\n", __func__, up_audiodata);
-					queue_add(ptr->audio_queue,up_audiodata);
+						memcpy(audiodata+i*4,audiobuffer+i*pt6audio->channels*2, 4);
 				}
+				if(scale>1.0) 
+					audio_downsample(audiodata, resample_audiodata, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
+				else if(scale < 1.0)
+					audio_upsample(audiodata, resample_audiodata, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
+				else
+					memcpy((void*)resample_audiodata, (void*)audiodata, dst_len);
+				
+			
+				queue_add(pt6audio->audio_queue, resample_audiodata);
 				free(audiodata);
 			}
-        }
-        ptr = ptr->next;
+			
+		}
     }
- //   pthread_mutex_unlock(&linklist_mutex);
-
-
+ 
 }
 
 #endif
@@ -642,118 +761,68 @@ int mct_customFilter(short *coeffs, tjregion arrayRegion,tjregion planeRegion, i
 
 
 #if USE_LOOPAUDIO
-#if 0
-int audio_found_device(){
 
-	int ctr;
 
-    	// This is where we'll store the input device list
-    pa_devicelist_t pa_input_devicelist[16];
 
-    	// This is where we'll store the output device list
-    pa_devicelist_t pa_output_devicelist[16];
-
-	while(!g_program_exit){
-		char *pch =NULL;
-    	if (pa_get_devicelist(pa_input_devicelist, pa_output_devicelist) < 0) {
-			//printf("failed to get device list\n");
-			//return -1;
-			sleep(1);
-			continue ;
-    	}
-
-    	for (ctr = 0; ctr < 16; ctr++) {
-	   		if (! pa_output_devicelist[ctr].initialized) {
-	    		break;
-			}
-			printf("=======[ Output Device #%d ]=======\n", ctr+1);
-			printf("Description: %s\n", pa_output_devicelist[ctr].description);
-			pch =strstr(pa_output_devicelist[ctr].description,"Loopback");
-			if(pch != NULL)
-				return 1;
-		//printf("Name: %s\n", pa_output_devicelist[ctr].name);
-		//printf("Index: %d\n", pa_output_devicelist[ctr].index);
-		//printf("\n");
-    		}
-		sleep(1);
-	}
-	return -1;
-}
-#endif
-
-void *audio_process_read(void *userdata)
+snd_pcm_t *audio_init(int rate)
 {
-
-	int i;
 	int err;
-	char *buffer;
-	int buffer_frames = 480;
-	unsigned int rate = 44100;
-	short buf[buffer_frames * 8];
 	snd_pcm_t *capture_handle;
 	snd_pcm_hw_params_t *hw_params;
-	snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
-	
-	struct T6evdi* pt6evdi = (struct T6evdi*) userdata;
-	
-#if 0
-    if (audio_found_device() < 0){
-		DEBUG_PRINT (" audio device not found\n") ;
-		return 0;
-	}
-#endif
+	snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;	
+
 	if ((err = snd_pcm_open (&capture_handle, "hw:Loopback,1", SND_PCM_STREAM_CAPTURE, 0)) < 0) {
 		DEBUG_PRINT ("cannot open audio device \n") ;
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("audio interface opened\n");
 
 	if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
 		DEBUG_PRINT ("cannot allocate hardware parameter structure\n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params allocated\n");
 
 	if ((err = snd_pcm_hw_params_any (capture_handle, hw_params)) < 0) {
 		DEBUG_PRINT("cannot initialize hardware parameter structure)\n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params initialized\n");
 
 	if ((err = snd_pcm_hw_params_set_access (capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
 		DEBUG_PRINT("cannot set access type \n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params access setted\n");
 
 	if ((err = snd_pcm_hw_params_set_format (capture_handle, hw_params, format)) < 0) {
 		DEBUG_PRINT ("cannot set sample format \n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT( "hw_params format setted\n");
 
 	if ((err = snd_pcm_hw_params_set_rate_near (capture_handle, hw_params, &rate, 0)) < 0) {
 		DEBUG_PRINT("cannot set sample rate\n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params rate setted\n");
 
 	if ((err = snd_pcm_hw_params_set_channels (capture_handle, hw_params, 8)) < 0) {
 		DEBUG_PRINT ( "cannot set channel count \n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params channels setted\n");
 
 	if ((err = snd_pcm_hw_params (capture_handle, hw_params)) < 0) {
 		DEBUG_PRINT("cannot set parameters \n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("hw_params setted\n");
@@ -764,81 +833,117 @@ void *audio_process_read(void *userdata)
 
 	if ((err = snd_pcm_prepare (capture_handle)) < 0) {
 		DEBUG_PRINT ( "cannot prepare audio interface for use \n");
-		return 0;
+		return NULL;
 	}
 
 	DEBUG_PRINT("audio interface prepared\n");
+	
+	return capture_handle;
+}
 
-    while(!g_program_exit ){
+void *audio_capture_process(void *userdata)
+{
 
-		err = snd_pcm_readi(capture_handle,buf,buffer_frames);
-		if(err == -EAGAIN ){
-			DEBUG_PRINT(" capture failed ret = -EAGAIN  \n");
-			snd_pcm_wait(capture_handle, 100);
+	
+	PT6AUDIO pt6audio = (PT6AUDIO) userdata;
+	
 
+	
+	while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
+		int err;
+		int buffer_frames = RECV_AUDIO_FRAMES;
+		int rate = 0, channels = 0, format = 0;
+		int now_rate = 0, now_channels = 0, now_format = 0;
+		char buf[RECV_AUDIO_FRAMES*8*4]; //max: 480framesx8channelsx32bit
+		snd_pcm_t *capture_handle;
+		snd_pcm_hw_params_t *hw_params;
+		int check_count  = 0;
+		
+		
+		err = get_loopback_work_hwparams(&rate, &channels, &format);
+		DEBUG_PRINT(" %s louis: %d %d %d\n", __func__, channels, rate, format);
+		if(err != 0) {
+			sleep(1);
 			continue;
-		}else if(err == -EPIPE){
-			DEBUG_PRINT(" capture failed ret = -EPIPE \n");
-			snd_pcm_prepare(capture_handle);
+		}
+		pt6audio->channels 		= channels;
+		pt6audio->sample_rate	= rate;
+		pt6audio->formats		= format;
+	
 
-			continue;
-		}else if (err == -ESTRPIPE){
-			DEBUG_PRINT(" capture failed ret = -ESTRPIPE \n");
-			err = snd_pcm_resume(capture_handle);
-			if(err < 0)
+		capture_handle = audio_init(rate);
+		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+		do{
+			err = snd_pcm_readi(capture_handle, buf, buffer_frames);
+			if(err == -EAGAIN ){
+				DEBUG_PRINT(" capture failed ret = -EAGAIN  \n");
+				snd_pcm_wait(capture_handle, 100);
+
+				continue;
+			}else if(err == -EPIPE){
+				DEBUG_PRINT(" capture failed ret = -EPIPE \n");
 				snd_pcm_prepare(capture_handle);
 
 				continue;
-		}else if(err < 0){
+			}else if (err == -ESTRPIPE){
+				DEBUG_PRINT(" capture failed ret = -ESTRPIPE \n");
+				err = snd_pcm_resume(capture_handle);
+				if(err < 0)
+					snd_pcm_prepare(capture_handle);
 
-			continue;
-		}
-		DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
-		pullaudio_buffer((char*)buf, userdata);
+					continue;
+			}else if(err < 0){
 
-
-
-    }
-    snd_pcm_close(capture_handle);
+				break;
+			}
+			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
+			pullaudio_buffer((char*)buf, userdata);
+			if(check_count++ > 500) {
+				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+				check_count = 0;
+			DEBUG_PRINT("%s check_count > 500\n",__func__);
+			}
+		}while(rate == now_rate && pt6audio->audio_work_process && !*pt6audio->detach_all_event);
+		snd_pcm_close(capture_handle);
+	}
+	
+	DEBUG_PRINT("%s: leave\n",__func__);
     return 0;
 
 }
 
 
-void *audio_process(void *userdata)
+void *audio_usb_process(void *userdata)
 {
-	struct T6evdi* pt6evdi = (struct T6evdi*) userdata;
+	PT6AUDIO pt6audio = (PT6AUDIO) userdata;
 	char *buf ;
 	int  err, len = 0;
-    pt6evdi->audio_work_process = 1;
-    while(pt6evdi->audio_work_process){
+    pt6audio->audio_work_process = 1;
+    while(pt6audio->audio_work_process){
 
-		if((len = queue_length(pt6evdi->audio_queue)) == 0){
-            		usleep(100);
+		if((len = queue_length(pt6audio->audio_queue)) == 0){
+            		usleep(1000);
 			continue;
 		}
 
-		buf = queue_remove(pt6evdi->audio_queue);
+		buf = queue_remove(pt6audio->audio_queue);
 
-		DEBUG_PRINT("%s: qlen = %d\n",__func__, len);
+		DEBUG_PRINT("%s: pt6audio->target_audio_buflen = %d\n",__func__, pt6audio->target_audio_buflen);
 
-		evdi_mutex_lock(pt6evdi->lock);
-		pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
-		err = t6_libusb_SendAudio(pt6evdi,buf,2090);
+		pthread_mutex_lock(pt6audio->lock);
+		err = t6_libusb_SendAudio(pt6audio->t6usbdev, buf, pt6audio->target_audio_buflen);
+		pthread_mutex_unlock(pt6audio->lock);
 		free(buf);
-		pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);
-		evdi_mutex_unlock(pt6evdi->lock);
-		if(err < 0){
-			break;
-		}
-
-
-
+		
+		if(err < 0) break;
     }
-
-
+	
+	pt6audio->audio_work_process = 0;
+	DEBUG_PRINT("%s: leave\n",__func__);
 }
 #endif
+
+
 #if 0
 void *DetectMode(void *userdata)
 {
@@ -1453,7 +1558,7 @@ void* evdi_process(void *userdata)
 	
     pthread_t pthr_event;
 	pthread_t pthr_jpg_encode;
-	pthread_t pthr_usb , pthr_audio ,pthr_int ,pthr_mode, pthr_audio_read;
+	pthread_t pthr_usb, pthr_int ,pthr_mode;
     DEBUG_PRINT("evdi_process id = %d \n",pt6evdi->display_id);
     
 	evdi_mutex_lock(pt6evdi->lock);
@@ -1570,29 +1675,7 @@ void* evdi_process(void *userdata)
 		
     }
 	
-#ifdef USE_LOOPAUDIO
-	if (pthread_create(&pthr_audio_read,NULL,audio_process_read, pt6evdi) != 0) {
-		libusb_exit(ctx);
-		return 0;
-	}
-#endif
-#ifdef USE_LOOPAUDIO
-    evdi_mutex_lock(pt6evdi->lock); 
-	if(audio_use(pt6evdi->t6usbdev ,pt6evdi->display_id) == 0){
-        t6_libusb_set_AudioEngineStatus(pt6evdi );
-        pt6evdi->audio_queue =  queue_create();
-		if (pthread_create(&pthr_audio,NULL,audio_process,pt6evdi) != 0) {
-			DEBUG_PRINT ("Create pthread error!\n");
-			evdi_disconnect(pt6evdi->ev_handle);
-			evdi_close(pt6evdi->ev_handle);
-			Dev_destroy(pt6evdi);
-			evdi_mutex_unlock(pt6evdi->lock);
-			return NULL;
-		}	
-		pt6evdi->audio_only = 1;
-	}
-	evdi_mutex_unlock(pt6evdi->lock);
-#endif
+
 	while(pt6evdi->image_work_process && !*(pt6evdi->detach_all_event)){
 	    if(pt6evdi->disp_set_mode == 0){
 			usleep(10);
@@ -1750,12 +1833,16 @@ void* evdi_process(void *userdata)
 
 
 pthread_mutex_t foo, usbctrl_lock;
-void create_wording_thread(int busid ,int devid)
+void create_working_thread(int busid ,int devid)
 {
 	int evdi_id = - 1;
 	int i = 0 ;
 	int ret;
 	pthread_t pthr_evdi[2], pthr_int;
+#ifdef USE_LOOPAUDIO
+	pthread_t pthr_audio_read, pthr_audio;
+	PT6AUDIO pT6audio;
+#endif
 	key_t key= 1634;
 	int shm_id = -1;
     struct evdi_box* evdi_list;
@@ -1885,6 +1972,45 @@ void create_wording_thread(int busid ,int devid)
 		sleep(2);
 
 	}
+	
+#ifdef USE_LOOPAUDIO
+	pthread_mutex_t audio_mutex;
+	pthread_mutex_init(&audio_mutex, NULL);
+
+
+	pT6audio = (PT6AUDIO) malloc(sizeof(T6AUDIO));
+	
+	memset((void*)pT6audio, 0, sizeof(T6AUDIO));
+	
+	
+	pT6audio->usbctrl_lock = &usbctrl_lock;
+	pT6audio->lock		   = &foo;
+	pT6audio->audio_mutex  = &audio_mutex;
+	pT6audio->t6usbdev	   = t6usbdev;
+	pT6audio->detach_all_event = &detach_all_event;
+	
+	pthread_mutex_lock(pT6audio->lock); 
+	t6_libusb_set_AudioEngineStatus(t6usbdev);
+	pthread_mutex_unlock(pT6audio->lock);
+	
+	pT6audio->audio_queue =  queue_create();
+	pT6audio->target_audio_buflen = 0;
+	pT6audio->audio_work_process = 1;
+#if 1 
+	if (pthread_create(&pthr_audio,NULL,audio_usb_process, pT6audio) != 0) {
+		DEBUG_PRINT ("Create pthread audio_process error!\n");
+	}	
+
+	if (pthread_create(&pthr_audio_read,NULL,audio_capture_process, pT6audio) != 0) {
+		DEBUG_PRINT ("Create pthread audio_process_read error!\n");
+	}
+    
+#endif	
+	
+	
+#endif
+	
+	
 	if(number == 1){
     	pthread_join(pthr_evdi[0],NULL);
 	}else{
@@ -1971,7 +2097,7 @@ static void EnumT6Device (){
 	signal(SIGCHLD, SIG_IGN);
 	pid = fork();
 	if(!pid){
-		create_wording_thread(busid,devid);
+		create_working_thread(busid,devid);
 		exit(0);
 	}
 
@@ -2029,7 +2155,7 @@ void SearchT6DeviceReset (){
 void Loaddriver(){
 
     system("modprobe evdi");
-    //system("modprobe snd-aloop");
+    system("modprobe snd-aloop");
 
 }
 

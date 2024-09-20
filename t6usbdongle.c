@@ -675,12 +675,12 @@ int t6_libusb_get_edid(PT6EVDI t6dev )
 
 
 
-int  t6_libusb_get_AudioEngineStatus(PT6EVDI t6dev ,PT6AUD_SETENGINESTATE setEngine )
+int  t6_libusb_get_AudioEngineStatus(libusb_device_handle* t6usbdev ,PT6AUD_SETENGINESTATE setEngine )
 {
 	int ret  = 0;
 	unsigned char num ;
 	T6AUD_GETENGINESTATE aud_engine;
-	ret = libusb_control_transfer(t6dev->t6usbdev,0xc0,VENDOR_REQ_AUD_GET_ENGINE_STATE,0,0,(unsigned char*)&aud_engine,sizeof(aud_engine),3000);
+	ret = libusb_control_transfer(t6usbdev,0xc0,VENDOR_REQ_AUD_GET_ENGINE_STATE,0,0,(unsigned char*)&aud_engine,sizeof(aud_engine),3000);
 	if(ret < 0)
 		return -1;
 	
@@ -697,16 +697,16 @@ int  t6_libusb_get_AudioEngineStatus(PT6EVDI t6dev ,PT6AUD_SETENGINESTATE setEng
 	
 }	
 
-int  t6_libusb_set_AudioEngineStatus(PT6EVDI t6dev )
+int  t6_libusb_set_AudioEngineStatus(libusb_device_handle* t6usbdev )
 {
     int ret ; 
 	T6AUD_SETENGINESTATE setEngine ;
 	memset(&setEngine,0,sizeof(setEngine));
-	if(t6_libusb_get_AudioEngineStatus(t6dev,&setEngine) < 0){
+	if(t6_libusb_get_AudioEngineStatus(t6usbdev,&setEngine) < 0){
 			return -1;
 		}
 	//hex_dump((char *) &setEngine,sizeof(setEngine),"set endine status");
-	ret = libusb_control_transfer(t6dev->t6usbdev,0x40,VENDOR_REQ_AUD_SET_ENGINE_STATE,0,0,(unsigned char*)&setEngine,sizeof(setEngine),3000);
+	ret = libusb_control_transfer(t6usbdev,0x40,VENDOR_REQ_AUD_SET_ENGINE_STATE,0,0,(unsigned char*)&setEngine,sizeof(setEngine),3000);
 	if(ret < 0){
 		
 		printf("set audio engine failed \n");
@@ -1053,7 +1053,7 @@ int t6_libusb_FilpJpegFrame(PT6EVDI t6dev,char *jpgimage ,int jpgsize,int flag)
 
 }
 
-int t6_libusb_SendAudio(PT6EVDI t6dev,char * data , int len  )
+int t6_libusb_SendAudio(libusb_device_handle* t6usbdev,char * data , int len  )
 {	int ret ;	
     int transferred = 0;
 	BULK_CMD_HEADER bulkhead;	
@@ -1062,16 +1062,16 @@ int t6_libusb_SendAudio(PT6EVDI t6dev,char * data , int len  )
 	bulkhead.PayloadLength = len ;	
 	bulkhead.PacketLength  = len ;	
 	bulkhead.PayloadAddress = 0;	
-	ret = libusb_bulk_transfer(t6dev->t6usbdev, EP_BLK_OUT_ADDR,(char *)&bulkhead,32, &transferred,5000);    
+	ret = libusb_bulk_transfer(t6usbdev, EP_BLK_OUT_ADDR,(char *)&bulkhead,32, &transferred,5000);    
 	if(ret < 0){		
 		printf("bulk out failed 1 =%d \n",ret);	
-		t6_libusb_donglereset(t6dev);
+		t6_libusb_donglereset2(t6usbdev);
 		return -1;    
 		}	
-	ret = libusb_bulk_transfer(t6dev->t6usbdev, EP_BLK_OUT_ADDR,data,len,&transferred,5000);    
+	ret = libusb_bulk_transfer(t6usbdev, EP_BLK_OUT_ADDR,data,len,&transferred,5000);    
 	if(ret < 0){		
 		printf("bulk out failed 2 =%d \n",ret);	
-		t6_libusb_donglereset(t6dev);
+		t6_libusb_donglereset2(t6usbdev);
 		return -1;    
 		}	
 	return 0 ;		
