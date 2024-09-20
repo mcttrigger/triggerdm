@@ -1,3 +1,6 @@
-Chromebrew developement Enviroment have something wrong on /usr/local/lib64/libm.so.6, so we need to overwrite it with orignial /lib64/libm.so.6. Please execute the following command as below,
+1. use ALSA loop device to simulate audio device and redirect the audio data to MCT Trigger device. So, we need to launch the loop device driver first.
+==> sudo modprobe snd-aloop 
 
+
+2. Chromebrew developement Enviroment have something wrong on /usr/local/lib64/libm.so.6, so we need to overwrite it with orignial /lib64/libm.so.6. Please execute the following command as below,
 sudo cp /lib64/libm.so.6 /usr/local/lib64/libm.so.6
