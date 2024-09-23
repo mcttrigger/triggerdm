@@ -2012,6 +2012,7 @@ void create_working_thread(int busid ,int devid)
 	
 	
 	if(number == 1){
+		DEBUG_PRINT("%s: ---1--\n", __func__);
     	pthread_join(pthr_evdi[0],NULL);
 	}else{
 		DEBUG_PRINT("%s: ---1--\n", __func__);
@@ -2031,7 +2032,7 @@ void create_working_thread(int busid ,int devid)
 //	if(foo != NULL)
 	pthread_mutex_destroy(&foo);
 	pthread_mutex_destroy(&usbctrl_lock);
-	DEBUG_PRINT("leave create_wording_thread !\n");
+	DEBUG_PRINT("leave create_wording_thread ! pid=%d tid=%d\n", getpid(),  pthread_self());
 	//exit(1);
 }
 
