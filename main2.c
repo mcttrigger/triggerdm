@@ -404,7 +404,7 @@ int audio_upsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, int
 			
 		}
 		
-		DEBUG_PRINT("%s: dst_len = %d %x\n", __func__, dst_len, dst_buf);
+//		DEBUG_PRINT("%s: dst_len = %d %x\n", __func__, dst_len, dst_buf);
 		return dst_len;
 }
 
@@ -442,7 +442,7 @@ int audio_downsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, i
 			}
 		}
 		
-		DEBUG_PRINT("%s: dst_len = %d %x\n", __func__, dst_len, dst_buf);
+//		DEBUG_PRINT("%s: dst_len = %d %x\n", __func__, dst_len, dst_buf);
 		return dst_len;
 }
 
