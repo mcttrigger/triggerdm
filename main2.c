@@ -2032,7 +2032,7 @@ void create_working_thread(int busid ,int devid)
 //	if(foo != NULL)
 	pthread_mutex_destroy(&foo);
 	pthread_mutex_destroy(&usbctrl_lock);
-	DEBUG_PRINT("leave create_wording_thread ! pid=%d\n", getpid();
+	DEBUG_PRINT("leave create_wording_thread ! pid=%d\n", getpid());
 	//exit(1);
 }
 
