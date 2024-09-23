@@ -456,7 +456,7 @@ int pullaudio_buffer(char *audiobuffer, void *userdata)
 		double scale = 0;
 		int dst_len = 0;
 		scale = (double) pt6audio->sample_rate /  (double) 48000;
-DEBUG_PRINT("%s: scale = %lf\n", __func__, scale);
+//DEBUG_PRINT("%s: scale = %lf\n", __func__, scale);
 		if(scale > 1.0) 
 			dst_len = audio_downsample(NULL, NULL, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
 		else if(scale < 1.0)
@@ -896,7 +896,7 @@ void *audio_capture_process(void *userdata)
 
 				break;
 			}
-			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
+//			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
 			pullaudio_buffer((char*)buf, userdata);
 			if(check_count++ > 500) {
 				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
@@ -919,7 +919,7 @@ void *audio_usb_process(void *userdata)
 	char *buf ;
 	int  err, len = 0;
     pt6audio->audio_work_process = 1;
-    while(pt6audio->audio_work_process){
+    while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
 
 		if((len = queue_length(pt6audio->audio_queue)) == 0){
             		usleep(1000);
@@ -928,7 +928,7 @@ void *audio_usb_process(void *userdata)
 
 		buf = queue_remove(pt6audio->audio_queue);
 
-		DEBUG_PRINT("%s: pt6audio->target_audio_buflen = %d\n",__func__, pt6audio->target_audio_buflen);
+//		DEBUG_PRINT("%s: pt6audio->target_audio_buflen = %d\n",__func__, pt6audio->target_audio_buflen);
 
 		pthread_mutex_lock(pt6audio->lock);
 		err = t6_libusb_SendAudio(pt6audio->t6usbdev, buf, pt6audio->target_audio_buflen);
@@ -1734,7 +1734,7 @@ void* evdi_process(void *userdata)
 								tjCompress2(jpegCompressor,pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA,
 															(unsigned char**)&jpgImage, &jpgImageSize, TJSAMP_420, 95, TJFLAG_FASTDCT );
 												
-							DEBUG_PRINT("%s: jpgsize = %ld \n", __func__, jpgImageSize);	
+//							DEBUG_PRINT("%s: jpgsize = %ld \n", __func__, jpgImageSize);	
 												
 						}
 						else {
@@ -1750,7 +1750,7 @@ void* evdi_process(void *userdata)
 									tjEncodeYUV2(jpegCompressor, pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA, 
 														(unsigned char*)(jpgImage+48), TJSAMP_420, 0);
 							}
-							DEBUG_PRINT("%s: yv12size = %ld buff=%x\n", __func__, jpgImageSize, (unsigned char*)jpgImage);	
+//							DEBUG_PRINT("%s: yv12size = %ld buff=%x\n", __func__, jpgImageSize, (unsigned char*)jpgImage);	
 							pt6evdi->jpg_rotate = 0; //no rotation first	
 						}
 
