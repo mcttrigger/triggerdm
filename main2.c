@@ -1508,7 +1508,7 @@ void *events_process(void *userdata)
 		int retval;
 
 		tv.tv_sec = 0;
-       	tv.tv_usec = 10000;
+       	tv.tv_usec = 1000000;
 
 		retval = select(evfd+1, &set, NULL, NULL, &tv);
 		if(retval == 0) {//no new update in 2 seconds, timeout
@@ -1520,6 +1520,7 @@ void *events_process(void *userdata)
 			continue;
 		}
 		else if(retval< 0) {
+			DEBUG_PRINT("%s: select fail, error=%d\n", __func__, errno);
 			break;
 		}
 

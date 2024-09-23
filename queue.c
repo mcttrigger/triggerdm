@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include "queue.h"
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 #define DEBUG_PRINT(fmt, args...)    fprintf(stderr, fmt, ## args)
 #else
@@ -34,7 +34,7 @@ void releses_queue(queue_t* queue)
 	char* request = NULL; 
 	do{
 		pthread_mutex_lock(&queue->mutex);
-		DEBUG_PRINT("[queue_destroy] The queue is not empty=%d\n",queue->length);
+		DEBUG_PRINT("[queue_destroy] The queue is not empty=%ld\n",queue->length);
 		if (queue->length > 0) {
 			pthread_mutex_unlock(&queue->mutex);
 			request = queue_remove(queue);
