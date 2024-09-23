@@ -1860,7 +1860,7 @@ void create_working_thread(int busid ,int devid)
     libusb_device *T6dev = NULL;
     libusb_device_handle* t6usbdev = NULL;
 
-	DEBUG_PRINT("ENTER %s\n",__FUNCTION__);
+	DEBUG_PRINT("ENTER %s pid=%d\n",__FUNCTION__, getpid());
 	 cnt = libusb_get_device_list(ctx, &list);
 
 	 // find T6 device
