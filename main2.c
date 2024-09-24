@@ -1512,7 +1512,7 @@ void *events_process(void *userdata)
 
 		retval = select(evfd+1, &set, NULL, NULL, &tv);
 		if(retval == 0) {//no new update in 2 seconds, timeout
-			//DEBUG_PRINT("select timeout\n");
+			DEBUG_PRINT("select timeout\n");
 
 			FD_ZERO (&set);
 			FD_SET (evfd, &set);
@@ -1828,6 +1828,7 @@ void* evdi_process(void *userdata)
 	pt6evdi->event_process = 0;
 	pthread_join(pthr_usb,NULL);
     pthread_join(pthr_event,NULL);
+	*(pt6evdi->detach_all_event) = 1;
 	DEBUG_PRINT("leave evdi_process \n");
 
 }
@@ -2010,6 +2011,11 @@ void create_working_thread(int busid ,int devid)
 	
 	
 #endif
+
+	while(!detach_all_event) {
+		sleep(5);
+		DEBUG_PRINT("%s: wait detach_all_event\n", __func__);
+	}
 	
 	
 	if(number == 1){
