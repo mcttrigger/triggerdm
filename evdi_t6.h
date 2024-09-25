@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <libusb.h>
 #include <evdi_lib.h>
-#include "queue.h"
 
 #define MAX_DIRTS 16
 #define MAX_T6_DEVICES	16
@@ -93,7 +92,7 @@ typedef struct T6Audio{
 	pthread_mutex_t         *usbctrl_lock; 		//for usb ctrl endpoint
 	pthread_mutex_t         *audio_mutex;
 	libusb_device_handle    *t6usbdev;
-	queue_t 				*audio_queue;
+	list_t 					audio_list_queue;
 	UINT8					*detach_all_event;
 	int audio_work_process;
 	int channels;

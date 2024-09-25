@@ -467,7 +467,7 @@ int pullaudio_buffer(char *audiobuffer, void *userdata)
 		pt6audio->target_audio_buflen = dst_len;
 	
    
-        if(pt6audio->audio_queue != NULL){
+        if(dst_len > 0){
 			char *audiodata = (char*)malloc(RECV_AUDIO_FRAMES*2*2); //T6 only support 2 channels 16bits
 			char *resample_audiodata = (char*)malloc(dst_len);;
 			if(audiodata != NULL && resample_audiodata != NULL){
@@ -485,7 +485,8 @@ int pullaudio_buffer(char *audiobuffer, void *userdata)
 					memcpy((void*)resample_audiodata, (void*)audiodata, dst_len);
 				
 			
-				queue_add(pt6audio->audio_queue, resample_audiodata);
+				//queue_add(pt6audio->audio_queue, resample_audiodata);
+				list_append(&pt6audio->audio_list_queue, resample_audiodata);
 				free(audiodata);
 			}
 			
@@ -921,12 +922,13 @@ void *audio_usb_process(void *userdata)
     pt6audio->audio_work_process = 1;
     while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
 
-		if((len = queue_length(pt6audio->audio_queue)) == 0){
+		if((len = list_size(&pt6audio->audio_list_queue)) == 0){
             		usleep(1000);
 			continue;
 		}
 
-		buf = queue_remove(pt6audio->audio_queue);
+		//buf = queue_remove(pt6audio->audio_queue);
+		buf = (char *)list_extract_at(&pt6audio->audio_list_queue,0);
 		if(buf == NULL) {
 			DEBUG_PRINT("%s: queue_remove return NULL\n",__func__);
 			continue;
@@ -1999,7 +2001,8 @@ void create_working_thread(int busid ,int devid)
 	t6_libusb_set_AudioEngineStatus(t6usbdev);
 	pthread_mutex_unlock(pT6audio->lock);
 	
-	pT6audio->audio_queue =  queue_create();
+	//pT6audio->audio_queue =  queue_create();
+	list_init(&(pT6audio->audio_list_queue));
 	pT6audio->target_audio_buflen = 0;
 	pT6audio->audio_work_process = 1;
 #if 1 
