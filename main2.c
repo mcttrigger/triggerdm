@@ -2048,7 +2048,7 @@ void create_working_thread(int busid ,int devid)
 	
 #ifdef USE_LOOPAUDIO
 	audio_releses_queue(&(pT6audio->audio_list_queue));
-	list_destroy(&(pT6audio->audio_list_queue));&(pT6audio->audio_list_queue)
+	list_destroy(&(pT6audio->audio_list_queue));
 #endif	
 
 	DEBUG_PRINT("%s: ---3--\n", __func__);
