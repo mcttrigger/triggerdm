@@ -495,6 +495,17 @@ int pullaudio_buffer(char *audiobuffer, void *userdata)
  
 }
 
+
+void audio_releses_queue(list_t *restrict l)
+{
+	int size = list_size(l);
+	int i ;
+	for(i = 0 ; i < size ; i++){
+		char *buf = (char*) list_extract_at(l,0);
+		free(buf);
+	}
+}
+
 #endif
 
 
@@ -902,7 +913,7 @@ void *audio_capture_process(void *userdata)
 			if(check_count++ > 500) {
 				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
 				check_count = 0;
-			DEBUG_PRINT("%s check_count > 500\n",__func__);
+				//DEBUG_PRINT("%s check_count > 500\n",__func__);
 			}
 		}while(rate == now_rate && pt6audio->audio_work_process && !*pt6audio->detach_all_event);
 		snd_pcm_close(capture_handle);
@@ -2021,7 +2032,7 @@ void create_working_thread(int busid ,int devid)
 
 	while(!detach_all_event) {
 		sleep(5);
-		DEBUG_PRINT("%s: wait detach_all_event\n", __func__);
+		//DEBUG_PRINT("%s: wait detach_all_event\n", __func__);
 	}
 	
 	
@@ -2035,6 +2046,11 @@ void create_working_thread(int busid ,int devid)
 		pthread_join(pthr_evdi[1],NULL);
 	}
 	
+#ifdef USE_LOOPAUDIO
+	audio_releses_queue(&(pT6audio->audio_list_queue));
+	list_destroy(&(pT6audio->audio_list_queue));&(pT6audio->audio_list_queue)
+#endif	
+
 	DEBUG_PRINT("%s: ---3--\n", __func__);
 	libusb_close(t6usbdev);
     libusb_exit(ctx);
