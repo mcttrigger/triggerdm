@@ -927,6 +927,10 @@ void *audio_usb_process(void *userdata)
 		}
 
 		buf = queue_remove(pt6audio->audio_queue);
+		if(buf == NULL) {
+			DEBUG_PRINT("%s: queue_remove return NULL\n",__func__);
+			continue;
+		}
 
 //		DEBUG_PRINT("%s: pt6audio->target_audio_buflen = %d\n",__func__, pt6audio->target_audio_buflen);
 
