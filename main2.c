@@ -866,7 +866,8 @@ void *audio_capture_process(void *userdata)
 		int buffer_frames = RECV_AUDIO_FRAMES;
 		int rate = 0, channels = 0, format = 0;
 		int now_rate = 0, now_channels = 0, now_format = 0;
-		char buf[RECV_AUDIO_FRAMES*8*4]; //max: 480framesx8channelsx32bit
+//		char buf[RECV_AUDIO_FRAMES*8*4]; //max: 480framesx8channelsx32bit
+		char *abuf; //max: 480framesx8channelsx32bit
 		snd_pcm_t *capture_handle;
 		snd_pcm_hw_params_t *hw_params;
 		int check_count  = 0;
@@ -882,11 +883,16 @@ void *audio_capture_process(void *userdata)
 		pt6audio->sample_rate	= rate;
 		pt6audio->formats		= format;
 	
+		abuf = (char*) malloc(RECV_AUDIO_FRAMES*8*4);
+		if(abuf == NULL) {
+			DEBUG_PRINT(" %s abuf malloc fail\n", __func__);
+			continue;
+		}
 
 		capture_handle = audio_init(rate);
 		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
 		do{
-			err = snd_pcm_readi(capture_handle, buf, buffer_frames);
+			err = snd_pcm_readi(capture_handle, abuf, buffer_frames);
 			if(err == -EAGAIN ){
 				DEBUG_PRINT(" capture failed ret = -EAGAIN  \n");
 				snd_pcm_wait(capture_handle, 100);
@@ -909,7 +915,7 @@ void *audio_capture_process(void *userdata)
 				break;
 			}
 //			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
-			pullaudio_buffer((char*)buf, userdata);
+			pullaudio_buffer((char*)abuf, userdata);
 			if(check_count++ > 500) {
 				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
 				check_count = 0;
