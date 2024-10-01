@@ -919,15 +919,15 @@ void *audio_capture_process(void *userdata)
 
 				break;
 			}
-			for(i=0;i<480;i++)
+			for(i=0;i<RECV_AUDIO_FRAMES;i++)
 				memcpy(cbuf+i*4, abuf+i*16, 4);
 			if(rate<48000){
 				pt6audio->target_audio_buflen = audio_upsample( NULL, NULL, rate, 48000, RECV_AUDIO_FRAMES*2*2);
-				audio_upsample(cbuf, abuf, rate, 48000, 1920);
+				audio_upsample(cbuf, abuf, rate, 48000, RECV_AUDIO_FRAMES*2*2);
 			}
 			else if(rate > 48000){
 				pt6audio->target_audio_buflen = audio_downsample( NULL, NULL, rate, 48000, RECV_AUDIO_FRAMES*2*2);
-				audio_downsample(cbuf, abuf, rate, 48000, 1920);
+				audio_downsample(cbuf, abuf, rate, 48000, RECV_AUDIO_FRAMES*2*2);
 			}else 
 				memcpy((void*)abuf,(void*)cbuf, RECV_AUDIO_FRAMES*2*2);
 
