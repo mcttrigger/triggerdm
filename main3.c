@@ -862,12 +862,12 @@ void *audio_capture_process(void *userdata)
 
 	
 	while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
-		int err;
+		int err = 0, i= 0;
 		int buffer_frames = RECV_AUDIO_FRAMES;
 		int rate = 0, channels = 0, format = 0;
 		int now_rate = 0, now_channels = 0, now_format = 0;
 //		char buf[RECV_AUDIO_FRAMES*8*4]; //max: 480framesx8channelsx32bit
-		char *abuf; //max: 480framesx8channelsx32bit
+		char *abuf,*cbuf; //max: 480framesx8channelsx32bit
 		snd_pcm_t *capture_handle;
 		snd_pcm_hw_params_t *hw_params;
 		int check_count  = 0;
@@ -884,13 +884,18 @@ void *audio_capture_process(void *userdata)
 		pt6audio->formats		= format;
 	
 		abuf = (char*) malloc(RECV_AUDIO_FRAMES*8*4);
+		cbuf = (char*) malloc(RECV_AUDIO_FRAMES*8*4);
 		if(abuf == NULL) {
 			DEBUG_PRINT(" %s abuf malloc fail\n", __func__);
 			continue;
 		}
+		if(cbuf == NULL) {
+			DEBUG_PRINT(" %s cbuf malloc fail\n", __func__);
+			continue;
+		}
 
 		capture_handle = audio_init(rate);
-		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+//		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
 		do{
 			err = snd_pcm_readi(capture_handle, abuf, buffer_frames);
 			if(err == -EAGAIN ){
@@ -914,15 +919,30 @@ void *audio_capture_process(void *userdata)
 
 				break;
 			}
-//			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
-			pullaudio_buffer((char*)abuf, userdata);
-			if(check_count++ > 500) {
-				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
-				check_count = 0;
-				//DEBUG_PRINT("%s check_count > 500\n",__func__);
+			for(i=0;i<480;i++)
+				memcpy(cbuf+i*4, abuf+i*16, 4);
+			if(rate<48000){
+				pt6audio->target_audio_buflen = audio_upsample( NULL, NULL, rate, 48000, RECV_AUDIO_FRAMES*2*2);
+				audio_upsample(cbuf, abuf, rate, 48000, 1920);
 			}
-		}while(rate == now_rate && pt6audio->audio_work_process && !*pt6audio->detach_all_event);
-		free(abuf);
+			else if(rate > 48000){
+				pt6audio->target_audio_buflen = audio_downsample( NULL, NULL, rate, 48000, RECV_AUDIO_FRAMES*2*2);
+				audio_downsample(cbuf, abuf, rate, 48000, 1920);
+			}else 
+				memcpy((void*)abuf,(void*)cbuf, RECV_AUDIO_FRAMES*2*2);
+
+			pthread_mutex_lock(pt6audio->lock);
+			err = t6_libusb_SendAudio(pt6audio->t6usbdev, abuf, pt6audio->target_audio_buflen);
+			pthread_mutex_unlock(pt6audio->lock);
+//			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
+//			pullaudio_buffer((char*)abuf, userdata);
+//			if(check_count++ > 500) {
+//				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+//				check_count = 0;
+//				//DEBUG_PRINT("%s check_count > 500\n",__func__);
+//`			}
+//		}while(rate == now_rate && pt6audio->audio_work_process && !*pt6audio->detach_all_event);
+		}while(!*(pt6audio->detach_all_event));
 		snd_pcm_close(capture_handle);
 	}
 	
@@ -941,7 +961,7 @@ void *audio_usb_process(void *userdata)
     while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
 
 		if((len = list_size(&pt6audio->audio_list_queue)) == 0){
-            		usleep(1000);
+            		usleep(100000);
 			continue;
 		}
 
