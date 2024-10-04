@@ -928,8 +928,10 @@ void *audio_capture_process(void *userdata)
 			else if(rate > 48000){
 				pt6audio->target_audio_buflen = audio_downsample( NULL, NULL, rate, 48000, RECV_AUDIO_FRAMES*2*2);
 				audio_downsample(cbuf, abuf, rate, 48000, RECV_AUDIO_FRAMES*2*2);
-			}else 
-				memcpy((void*)abuf,(void*)cbuf, RECV_AUDIO_FRAMES*2*2);
+			}else {
+				pt6audio->target_audio_buflen = RECV_AUDIO_FRAMES*2*2;
+				memcpy((void*)abuf,(void*)cbuf, RECV_AUDIO_FRAMES*2*2);	
+			}
 
 			pthread_mutex_lock(pt6audio->lock);
 			err = t6_libusb_SendAudio(pt6audio->t6usbdev, abuf, pt6audio->target_audio_buflen);
