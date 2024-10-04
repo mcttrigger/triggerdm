@@ -861,7 +861,7 @@ void *audio_capture_process(void *userdata)
 	
 
 	
-	while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
+	while(!*pt6audio->detach_all_event){
 		int err = 0, i= 0;
 		int buffer_frames = RECV_AUDIO_FRAMES;
 		int rate = 0, channels = 0, format = 0;
@@ -895,7 +895,7 @@ void *audio_capture_process(void *userdata)
 		}
 
 		capture_handle = audio_init(rate);
-//		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+		err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
 		do{
 			err = snd_pcm_readi(capture_handle, abuf, buffer_frames);
 			if(err == -EAGAIN ){
@@ -938,13 +938,13 @@ void *audio_capture_process(void *userdata)
 			pthread_mutex_unlock(pt6audio->lock);
 //			DEBUG_PRINT("%s: pcm read frames = %d\n",__func__, err);
 //			pullaudio_buffer((char*)abuf, userdata);
-//			if(check_count++ > 500) {
-//				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
-//				check_count = 0;
+			if(check_count++ > 500) {
+				err = get_loopback_work_hwparams(&now_rate, &now_channels, &now_format);
+				check_count = 0;
 //				//DEBUG_PRINT("%s check_count > 500\n",__func__);
-//`			}
-//		}while(rate == now_rate && pt6audio->audio_work_process && !*pt6audio->detach_all_event);
-		}while(!*(pt6audio->detach_all_event));
+			}
+		}while(rate == now_rate && !*pt6audio->detach_all_event);
+//		}while(!*(pt6audio->detach_all_event));
 		snd_pcm_close(capture_handle);
 	}
 	
