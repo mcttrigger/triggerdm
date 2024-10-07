@@ -1932,8 +1932,6 @@ void create_working_thread(int busid ,int devid)
 	}
 	
 #ifdef USE_LOOPAUDIO
-	pthread_mutex_init(&audio_mutex, NULL);
-
 
 	pT6audio = (PT6AUDIO) malloc(sizeof(T6AUDIO));
 	
