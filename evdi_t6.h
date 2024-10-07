@@ -90,11 +90,8 @@ typedef struct T6evdi{
 typedef struct T6Audio{
 	pthread_mutex_t         *lock; 				//for usb bulk endpoint
 	pthread_mutex_t         *usbctrl_lock; 		//for usb ctrl endpoint
-	pthread_mutex_t         *audio_mutex;
 	libusb_device_handle    *t6usbdev;
-	list_t 					audio_list_queue;
 	UINT8					*detach_all_event;
-	int audio_work_process;
 	int channels;
 	int sample_rate;
 	int formats;

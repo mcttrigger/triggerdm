@@ -447,64 +447,7 @@ int audio_downsample(char *src_buf, char *dst_buf, int src_freq, int dst_freq, i
 }
 
 
-int pullaudio_buffer(char *audiobuffer, void *userdata)
-{
 
-	PT6AUDIO pt6audio = (PT6AUDIO) userdata;
-	
-	if(pt6audio != NULL) {
-		double scale = 0;
-		int dst_len = 0;
-		scale = (double) pt6audio->sample_rate /  (double) 48000;
-//DEBUG_PRINT("%s: scale = %lf\n", __func__, scale);
-		if(scale > 1.0) 
-			dst_len = audio_downsample(NULL, NULL, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
-		else if(scale < 1.0)
-			dst_len = audio_upsample(NULL, NULL, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
-		else
-			dst_len = RECV_AUDIO_FRAMES*2*2;
-	
-		pt6audio->target_audio_buflen = dst_len;
-	
-   
-        if(dst_len > 0){
-			char *audiodata = (char*)malloc(RECV_AUDIO_FRAMES*2*2); //T6 only support 2 channels 16bits
-			char *resample_audiodata = (char*)malloc(dst_len);;
-			if(audiodata != NULL && resample_audiodata != NULL){
-				
-				if(pt6audio->channels >= 2){
-					int i =0;
-					for(i=0;i<480;i++)
-						memcpy(audiodata+i*4,audiobuffer+i*pt6audio->channels*2, 4);
-				}
-				if(scale>1.0) 
-					audio_downsample(audiodata, resample_audiodata, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
-				else if(scale < 1.0)
-					audio_upsample(audiodata, resample_audiodata, pt6audio->sample_rate, 48000, RECV_AUDIO_FRAMES*2*2);
-				else
-					memcpy((void*)resample_audiodata, (void*)audiodata, dst_len);
-				
-			
-				//queue_add(pt6audio->audio_queue, resample_audiodata);
-				list_append(&pt6audio->audio_list_queue, resample_audiodata);
-				free(audiodata);
-			}
-			
-		}
-    }
- 
-}
-
-
-void audio_releses_queue(list_t *restrict l)
-{
-	int size = list_size(l);
-	int i ;
-	for(i = 0 ; i < size ; i++){
-		char *buf = (char*) list_extract_at(l,0);
-		free(buf);
-	}
-}
 
 #endif
 
@@ -954,41 +897,7 @@ void *audio_capture_process(void *userdata)
 }
 
 
-#if 0
-void *audio_usb_process(void *userdata)
-{
-	PT6AUDIO pt6audio = (PT6AUDIO) userdata;
-	char *buf ;
-	int  err, len = 0;
-    pt6audio->audio_work_process = 1;
-    while(!*pt6audio->detach_all_event && pt6audio->audio_work_process){
 
-		if((len = list_size(&pt6audio->audio_list_queue)) == 0){
-            		usleep(100000);
-			continue;
-		}
-
-		//buf = queue_remove(pt6audio->audio_queue);
-		buf = (char *)list_extract_at(&pt6audio->audio_list_queue,0);
-		if(buf == NULL) {
-			DEBUG_PRINT("%s: queue_remove return NULL\n",__func__);
-			continue;
-		}
-
-//		DEBUG_PRINT("%s: pt6audio->target_audio_buflen = %d\n",__func__, pt6audio->target_audio_buflen);
-
-		pthread_mutex_lock(pt6audio->lock);
-		err = t6_libusb_SendAudio(pt6audio->t6usbdev, buf, pt6audio->target_audio_buflen);
-		pthread_mutex_unlock(pt6audio->lock);
-		free(buf);
-		
-		if(err < 0) break;
-    }
-	
-	pt6audio->audio_work_process = 0;
-	DEBUG_PRINT("%s: leave\n",__func__);
-}
-#endif
 #endif
 
 
@@ -1520,7 +1429,6 @@ void *usb_process(void *userdata)
 	pt6evdi->image_work_process = 0;
 	//pt6evdi->jpg_work_process = 0 ;
 	pt6evdi->usb_process = 0 ;
-	//pt6evdi->audio_work_process = 0 ;
 
     //sleep(1);
     //Dev_destroy(pt6evdi);
@@ -2024,7 +1932,6 @@ void create_working_thread(int busid ,int devid)
 	}
 	
 #ifdef USE_LOOPAUDIO
-	pthread_mutex_t audio_mutex;
 	pthread_mutex_init(&audio_mutex, NULL);
 
 
@@ -2035,7 +1942,6 @@ void create_working_thread(int busid ,int devid)
 	
 	pT6audio->usbctrl_lock = &usbctrl_lock;
 	pT6audio->lock		   = &foo;
-	pT6audio->audio_mutex  = &audio_mutex;
 	pT6audio->t6usbdev	   = t6usbdev;
 	pT6audio->detach_all_event = &detach_all_event;
 	
@@ -2043,20 +1949,14 @@ void create_working_thread(int busid ,int devid)
 	t6_libusb_set_AudioEngineStatus(t6usbdev);
 	pthread_mutex_unlock(pT6audio->lock);
 	
-	//pT6audio->audio_queue =  queue_create();
-	list_init(&(pT6audio->audio_list_queue));
+	
 	pT6audio->target_audio_buflen = 0;
-	pT6audio->audio_work_process = 1;
-#if 1 
-//	if (pthread_create(&pthr_audio,NULL,audio_usb_process, pT6audio) != 0) {
-//		DEBUG_PRINT ("Create pthread audio_process error!\n");
-//	}	
 
 	if (pthread_create(&pthr_audio_read,NULL,audio_capture_process, pT6audio) != 0) {
 		DEBUG_PRINT ("Create pthread audio_process_read error!\n");
 	}
     
-#endif	
+
 	
 	
 #endif
@@ -2077,10 +1977,7 @@ void create_working_thread(int busid ,int devid)
 		pthread_join(pthr_evdi[1],NULL);
 	}
 	
-#ifdef USE_LOOPAUDIO
-	audio_releses_queue(&(pT6audio->audio_list_queue));
-	list_destroy(&(pT6audio->audio_list_queue));
-#endif	
+
 
 	DEBUG_PRINT("%s: ---3--\n", __func__);
 	libusb_close(t6usbdev);
