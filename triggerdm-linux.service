@@ -1,0 +1,14 @@
+[Unit]
+Description=MCT Trigger 6 USB display driver (triggerdm)
+Documentation=https://github.com/mcttrigger/triggerdm
+After=systemd-modules-load.service
+
+[Service]
+Type=simple
+ExecStartPre=-/sbin/modprobe evdi
+ExecStart=/usr/local/sbin/triggerdm
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
