@@ -610,8 +610,14 @@ int t6_vga_force_edid(PT6EVDI t6dev)
 {
 	int disp0_cap = t6dev->dispcaps & 0x01;
 	int disp1_cap = t6dev->dispcaps>>4 & 0x01;
-	
+	const char *force = getenv("TRIGGERDM_VGA_FORCE_EDID");
+
 	DEBUG_PRINT("%s: %d %d %d \n", __func__, disp0_cap, disp1_cap,t6dev->disp_interface);
+	/* By default a VGA port with no readable EDID is treated as disconnected,
+	 * so no phantom display is created. Set TRIGGERDM_VGA_FORCE_EDID=1 to get
+	 * the original behavior (always-on generic EDID) for DDC-less monitors. */
+	if(force == NULL || force[0] != '1')
+		return 0;
 	if((t6dev->disp_interface == 0 && (disp0_cap > 0)) || (t6dev->disp_interface == 1 && (disp1_cap > 0))) {
 		memcpy(t6dev->edid,generic_edid,128);
 		DEBUG_PRINT("VGA force to use generic EDID \n");
