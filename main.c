@@ -987,6 +987,53 @@ void *int_process2(void *userdata)
 
 
 -----------------------------------------------------------------------------*/
+/* Frame rate statistics, enabled with TRIGGERDM_FPS=1. While a display is
+ * being updated, one line per second is written to stderr (the journal when
+ * running as a service) with the frames sent over USB, the frames skipped
+ * because the USB queue was full and the average compressed frame size. */
+struct fps_stats {
+	struct timeval start;
+	unsigned int frames;
+	unsigned long bytes;
+};
+
+static int fps_enabled(void)
+{
+	static int enabled = -1;
+
+	if(enabled < 0){
+		const char *env = getenv("TRIGGERDM_FPS");
+		enabled = (env != NULL && env[0] == '1');
+	}
+	return enabled;
+}
+
+static void fps_report(struct T6evdi *pt6evdi, struct fps_stats *st)
+{
+	struct timeval now;
+	long elapsed_us;
+	unsigned int dropped;
+
+	gettimeofday(&now, NULL);
+	if(st->start.tv_sec == 0){
+		st->start = now;
+		return;
+	}
+	elapsed_us = (now.tv_sec - st->start.tv_sec) * 1000000L + (now.tv_usec - st->start.tv_usec);
+	if(elapsed_us < 1000000L)
+		return;
+
+	dropped = __atomic_exchange_n(&pt6evdi->fps_dropped, 0, __ATOMIC_RELAXED);
+	if(st->frames || dropped)
+		fprintf(stderr, "triggerdm: display %d: %.1f fps, %u dropped, %lu KB/frame\n",
+			pt6evdi->display_id, st->frames * 1e6 / elapsed_us, dropped,
+			st->frames ? st->bytes / st->frames / 1024 : 0);
+	st->start = now;
+	st->frames = 0;
+	st->bytes = 0;
+}
+
+
 void *usb_process(void *userdata)
 {
 	struct T6evdi* pt6evdi = (struct T6evdi*) userdata;
@@ -1010,6 +1057,7 @@ void *usb_process(void *userdata)
 #endif
 	
 	int usb_speed = LIBUSB_SPEED_HIGH;
+	struct fps_stats fps = {0};
 	
 	
 	evdi_mutex_lock(pt6evdi->usbctrl_lock);
@@ -1119,6 +1167,9 @@ void *usb_process(void *userdata)
    // t6_libusb_Rgb24_full_block(pt6evdi,fbAddr1);
 	//t6_libusb_Rgb24_full_block(pt6evdi,fbAddr2);
 	while(pt6evdi->usb_process && pt6evdi->evdi_list_queue->box[pt6evdi->display_id] == 1 && !*(pt6evdi->detach_all_event)){
+
+		if(fps_enabled())
+			fps_report(pt6evdi, &fps);
 
         	if(list_size(&pt6evdi->jpg_list_queue)== 0){
 			usleep(5000);
@@ -1263,6 +1314,10 @@ void *usb_process(void *userdata)
 			
 		
 		evdi_mutex_unlock(pt6evdi->lock);
+		if(ret == 0){
+			fps.frames++;
+			fps.bytes += jpacket->jpgImageSize;
+		}
 
 
 
@@ -1667,7 +1722,9 @@ void* evdi_process(void *userdata)
 						
 						
 					}
-		        }
+		        }else{
+					__atomic_add_fetch(&pt6evdi->fps_dropped, 1, __ATOMIC_RELAXED);
+				}
 				//DEBUG_PRINT ("evdi_request_update e\n");
 			}
 			
@@ -1808,6 +1865,7 @@ void create_wording_thread(int busid ,int devid)
 		g->interface_num = number;
 		g->dispcaps = dispcaps;
 		g->detach_all_event = &detach_all_event;
+		g->fps_dropped = 0;
 		//g->image_queue = queue_create();
 		//g->jpg_queue   = queue_create();
 		list_init(&g->jpg_list_queue);

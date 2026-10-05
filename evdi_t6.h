@@ -83,6 +83,7 @@ typedef struct T6evdi{
 	pthread_mutex_t         *usbctrl_lock; 		//for usb ctrl endpoint
 	pthread_mutex_t         image_mutex;
 	pthread_mutex_t         bulkusb_mutex;
+	unsigned int            fps_dropped;		//frames skipped because the USB queue was full
 	struct T6evdi *next;
 }T6EVDI, *PT6EVDI;
 
