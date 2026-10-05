@@ -564,7 +564,7 @@ void mct_cursor_set_handler(struct evdi_cursor_set cursor_set,void *user_data)
 	//DEBUG_PRINT("%s: hot_x=%d hot_y=%d w=%d y=%d len=%d enable=%d\n", __func__, cursor_set.hot_x, cursor_set.hot_y, cursor_set.width, cursor_set.height, 
 	//                                                                            cursor_set.buffer_length, cursor_set.enabled);
 	evdi_mutex_lock(pt6evdi->usbctrl_lock);
-	if(cursor_set.width && cursor_set.height){
+	if(cursor_set.enabled && cursor_set.width && cursor_set.height){
 		t6_libusb_set_cursor_shape(pt6evdi->t6usbdev, 0, pt6evdi->disp_interface, cursor_set.width, cursor_set.height, (unsigned char*)cursor_set.buffer, cursor_set.buffer_length);
 		t6_libusb_set_cursor_state(pt6evdi->t6usbdev, 0, pt6evdi->disp_interface, 1);
 	}
