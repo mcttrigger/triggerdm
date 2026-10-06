@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2016-2024 Magic Control Technology Corp.
+ *  Modified 2026 by Arliones Hoeller Jr. (see the git history for details)
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
